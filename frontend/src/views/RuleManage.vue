@@ -317,8 +317,8 @@ const conditionText = (r) => {
       return (e.allowedGender === '女' ? '仅限女性使用' : '仅限男性使用') +
         (Array.isArray(e.drugs) ? `（覆盖 ${e.drugs.length} 药）` : '')
     case 'age_drug':
-      if (e.maxAge != null) return `${e.maxAge} 岁以下禁用`
-      if (e.minAge != null) return `${e.minAge} 岁及以上使用`
+      if (e.minAge != null) return `${e.minAge} 岁及以上方可使用（不足年龄禁用）`
+      if (e.maxAge != null) return `限 ${e.maxAge} 岁及以下使用（超龄风险）`
       return '—'
     case 'course_limit':
       return `单次处方疗程 ≤ ${e.maxDays} 天`

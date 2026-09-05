@@ -97,13 +97,15 @@ function generateExecutableRules() {
   }
 
   // ===== 每药阈值型（每条规则一个药品 + 阈值）=====
-  // 药品儿童禁用 (seq66) -> age_drug maxAge
+  // 药品儿童禁用 (seq66) -> age_drug minAge
+  // 检出逻辑为「参保人年龄小于儿童禁用年龄阈值」（如 2 岁以下禁用），
+  // 对应引擎 age_drug 的 minAge 分支（年龄 < minAge 触发"年龄不足"）
   for (const x of kws(66)) {
-    const name = col(x, '药品通用名'); const maxAge = maxInt(col(x, '儿童禁用年龄阈值'))
-    if (!name || BAD_WORDS.has(name) || !maxAge) continue
+    const name = col(x, '药品通用名'); const minAge = maxInt(col(x, '儿童禁用年龄阈值'))
+    if (!name || BAD_WORDS.has(name) || !minAge) continue
     add({
       code: `EXE-AGE66-${col(x, '序号')}`, name: `儿童禁用：${name}`, type: 'age_drug',
-      expression: { drug: name, maxAge }, severity: 'reject', priority: 100,
+      expression: { drug: name, minAge }, severity: 'reject', priority: 100,
       legal_basis: `依据《药品说明书儿童用药》：${col(x, '儿童禁用年龄阈值')}以下小儿禁用`,
       suggestion: '儿童禁用，建议更换为适龄药品'
     }, 66)

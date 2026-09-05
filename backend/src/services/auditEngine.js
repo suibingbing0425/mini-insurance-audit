@@ -61,11 +61,13 @@ const checkers = {
     return null
   },
 
-  // 性别用药禁忌：expr.drug + expr.allowedGender('男'/'女')
+  // 性别用药禁忌：expr.drugs(聚合) 或 expr.drug(单药) + expr.allowedGender('男'/'女')
   gender_drug(order, expr) {
-    if (!order.patient || !expr.drug || !expr.allowedGender) return null
+    if (!order.patient || !expr.allowedGender) return null
+    const list = expr.drugs || (expr.drug ? [expr.drug] : [])
+    if (!list.length) return null
     for (const p of order.prescriptions) {
-      if (p.drug.name !== expr.drug) continue
+      if (!list.includes(p.drug.name)) continue
       if (order.patient.gender !== expr.allowedGender) {
         return { reason: `「${p.drug.name}」仅限【${expr.allowedGender === '女' ? '女性' : '男性'}】使用，当前患者性别为【${order.patient.gender === '女' ? '女性' : '男性'}】，属于性别禁忌` }
       }

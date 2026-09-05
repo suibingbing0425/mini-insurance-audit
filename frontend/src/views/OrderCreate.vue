@@ -3,6 +3,15 @@
     <div class="left-panel">
       <el-card>
         <template #header>模拟 HIS 开方入口（演示用）</template>
+        <div class="demo-bar">
+          <span class="demo-label">一键演示：</span>
+          <el-button size="small" :disabled="submitted" @click="applyDemo(0)">① 妊娠禁忌</el-button>
+          <el-button size="small" :disabled="submitted" @click="applyDemo(1)">② 儿童禁用</el-button>
+          <el-button size="small" :disabled="submitted" @click="applyDemo(2)">③ 超疗程</el-button>
+          <el-button size="small" :disabled="submitted" @click="applyDemo(3)">④ 性别禁忌</el-button>
+          <el-button size="small" :disabled="submitted" @click="applyDemo(4)">⑤ 医保不符</el-button>
+          <span class="demo-tip">自动选患者+开药，右侧实时出事前提醒（供不了解规则的人快速体验）</span>
+        </div>
         <el-form label-width="90px">
           <el-form-item label="患者">
             <el-select v-model="form.patient_id" :disabled="submitted" filterable placeholder="搜索选择患者" style="width: 220px">
@@ -195,6 +204,35 @@ function statusText(s) {
   return { draft: '草稿', submitted: '已提交', audited: '审核通过', rejected: '已拒绝' }[s] || s
 }
 
+// ===== 一键演示处方：自动选患者 + 填药，右侧 watch 会自动触发事前提醒 =====
+const DEMOS = [
+  { patient: '李小红', diagnosis: '常规诊疗', items: [{ name: '阿苯达唑片', days: 3 }] },
+  { patient: '张小明', diagnosis: '上呼吸道感染', items: [{ name: '安乃近片', days: 3 }] },
+  { patient: '张大壮', diagnosis: '支气管炎', items: [{ name: '阿莫西林分散片', days: 14 }] },
+  { patient: '张大壮', diagnosis: '妇科门诊随访', items: [{ name: '艾附暖宫丸', days: 7 }] },
+  { patient: '王秀英', diagnosis: '皮肤瘙痒', items: [{ name: '疤痕止痒软化膏', days: 7 }] }
+]
+function applyDemo(idx) {
+  const demo = DEMOS[idx]
+  if (!demo) return
+  resetForm()
+  const patient = patients.value.find(x => x.name === demo.patient)
+  if (!patient) return ElMessage.warning(`未找到演示患者「${demo.patient}」，请先点击患者区「搜索」刷新`)
+  form.patient_id = patient.id
+  form.diagnosis = demo.diagnosis
+  form.prescriptions = demo.items.map(it => {
+    const drug = drugs.value.find(x => x.name === it.name)
+    if (!drug) return null
+    const isExternal = /膏|软膏|乳膏|栓|贴/.test(drug.name)
+    return {
+      drug_id: drug.id, quantity: 1, frequency: isExternal ? '每日1次' : '每日3次',
+      days: it.days, single_dose: Number(drug.max_dose) || 1,
+      usage: isExternal ? '外用' : '口服'
+    }
+  }).filter(Boolean)
+  ElMessage.success(`已填充示例「${demo.patient} 开${demo.items.map(i => i.name).join('、')}」，右侧为事前提醒结果`)
+}
+
 // 重置表单，用于成功转入事中审核后或用户手动新开方
 function resetForm() {
   form.patient_id = null
@@ -264,6 +302,9 @@ onMounted(() => { loadPatients(); loadDrugs() })
 </script>
 
 <style scoped>
+.demo-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; background: rgba(64,158,255,0.05); border: 1px dashed rgba(64,158,255,0.35); border-radius: 8px; padding: 8px 10px; }
+.demo-label { font-weight: 500; font-size: 13px; color: #409eff; }
+.demo-tip { font-size: 12px; color: #909399; margin-left: 4px; }
 .page-layout { display: flex; gap: 10px; align-items: stretch; height: 100%; box-sizing: border-box; padding: 10px; }
 .left-panel { flex: 1; min-width: 0; display: flex; }
 .left-panel > .el-card { flex: 1; min-height: 0; display: flex; flex-direction: column; }
