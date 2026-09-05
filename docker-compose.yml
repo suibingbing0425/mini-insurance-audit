@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  # 1) MySQL 数据库
+  db:
+    image: mysql:8.0
+    container_name: miaudit-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASS:-123456}
+      MYSQL_DATABASE: ${DB_NAME:-insurance_audit}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASS:-123456}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # 2) 后端（Node/Express）
+  backend:
+    build: ./backend
+    container_name: miaudit-backend
+    env_file:
+      - ./backend/.env          # 本地 .env 注入（含 JWT_SECRET/DB_PASS，不会进镜像）
+    environment:
+      DB_HOST: db               # 容器内用服务名访问数据库
+      DB_PORT: 3306
+      CORS_ORIGIN: http://localhost:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # 3) 前端（nginx 托管 + 反代 /api）
+  frontend:
+    build: ./frontend
+    container_name: miaudit-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  db-data:

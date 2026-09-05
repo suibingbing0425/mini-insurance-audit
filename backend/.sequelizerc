@@ -1,0 +1,10 @@
+const path = require('path')
+
+// sequelize-cli 配置文件入口：将各路径指向项目实际目录
+// 运行 `sequelize db:migrate` 时，CLI 会读取本文件定位 config / models / migrations / seeders
+module.exports = {
+  config: path.resolve('config', 'sequelize-cli-config.js'),
+  'models-path': path.resolve('src', 'models'),
+  'migrations-path': path.resolve('migrations'),
+  'seeders-path': path.resolve('src', 'seeders')
+}
