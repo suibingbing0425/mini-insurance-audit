@@ -34,7 +34,7 @@
 
 | 亮点 | 说明 |
 |---|---|
-| **真实规则数据，非编造** | 规则全部来自官方《2025 版医疗保障基金智能监管规则库》：**88 条国家监管规则 + 知识点明细**（源文件 46 个 sheet） |
+| **真实规则数据，非编造** | 规则来自官方《2025 版医疗保障基金智能监管规则库》，官方**源文件是 PDF**（非结构化文档）；已自行结构化为 47 个 sheet 的 Excel 后由脚本入库，共 **88 条国家监管规则 + 知识点明细** |
 | **把「文字规则」变成「可执行规则」** | 从 88 条规则中自动抽取 **1172 条可执行规则**，覆盖 **8 类校验维度**，每条均可溯源到源表 |
 | **规则引擎可扩展** | 规则配置与校验代码完全分离，**新增规则只写配置、不改引擎代码** |
 | **规则在线可视化管理** | 1172 条规则支持多维度筛选、逐条启停、编辑删除，支持 Excel 批量导入 |
@@ -98,7 +98,7 @@
 | **前端** | Vue 3 · Vite · Pinia · Vue Router · Element Plus · Axios（统一封装）· ECharts |
 | **后端** | Node.js · Express · Sequelize（ORM）· JWT 鉴权 · 角色控制 · 接口限流 |
 | **数据库** | MySQL 8 · sequelize-cli migration（版本化建表、可回滚） |
-| **数据加工** | Node 脚本 ETL：Excel 解析 → 清洗去重 → 幂等入库 → 一致性校验 |
+| **数据加工** | 官方 PDF 提取 + 结构化整理为多 sheet Excel → 脚本 ETL（解析 → 清洗去重 → 幂等入库 → 一致性校验） |
 | **工程化** | vitest（单元测试）· GitHub Actions（CI）· Docker / Docker Compose |
 
 ---
@@ -280,16 +280,20 @@ npm run dev        # http://localhost:5173（/api 自动代理到 3000）
 ## 八、规则数据怎么来的（数据溯源）
 
 ```
-2025 版医疗保障基金智能监管规则库（官方 Excel，46 个 sheet）
-   ├─ 第一个 sheet：88 条规则列表（分类 / 规则名 / 是否有明细）
-   └─ 其余 sheet：每条规则的知识点明细（按"规则名 ∈ sheet 名"匹配）
-        ↓ ETL 解析（清洗去重 → 幂等 upsert → 校验比对）
+官方 PDF《2025 年版医疗保障基金智能监管规则库、知识库》（非结构化文档，规则框架约 50 页）
+        ↓ ① Extract：借助 pdfplumber 定位提取 + 人工结构化整理为 Excel
+结构化 Excel（47 个 sheet）
+   ├─ 第 1 个 sheet：88 条规则列表（分类 / 规则名 / 是否有明细）
+   └─ 其余 46 个 sheet：每条规则的知识点明细（按"规则名 ∈ sheet 名"匹配）
+        ↓ ② Transform + Load：脚本 ETL（解析 → 清洗去重 → 幂等 upsert → 校验比对）
 rule-library.json（backend/data）
    ├─ migrate-rule-knowledge.js → rule_knowledge 表（88 条 + 知识点，供人工查阅）
    └─ executableRuleFactory.js  → audit_rule 表（1172 条可执行规则，仅"算法可判定"维度）
         ↓ 引擎执行
 auditEngine.js：按 type 找到对应 checker → 逐条跑校验 → 生成富结构违规记录
 ```
+
+> **ETL 各阶段说明**：官方只提供非结构化的 PDF，所以 **Extract 阶段是「借助 pdfplumber 定位提取 + 人工结构化整理」配合完成的**；Transform（清洗去重、字段映射、幂等 upsert、一致性校验）与 Load（入库）全部由脚本自动完成。
 
 - 一致性校验脚本：`node backend/scripts/verify-executable-rules.js`
 - 后台批量导入：解析逻辑见 `backend/src/services/ruleLibraryParser.js`
