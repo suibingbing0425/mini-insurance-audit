@@ -3,15 +3,6 @@
     <div class="left-panel">
       <el-card>
         <template #header>模拟 HIS 开方入口（演示用）</template>
-        <div class="demo-bar">
-          <span class="demo-label">一键演示：</span>
-          <el-button size="small" :disabled="submitted" @click="applyDemo(0)">① 妊娠禁忌</el-button>
-          <el-button size="small" :disabled="submitted" @click="applyDemo(1)">② 儿童禁用</el-button>
-          <el-button size="small" :disabled="submitted" @click="applyDemo(2)">③ 超疗程</el-button>
-          <el-button size="small" :disabled="submitted" @click="applyDemo(3)">④ 性别禁忌</el-button>
-          <el-button size="small" :disabled="submitted" @click="applyDemo(4)">⑤ 医保不符</el-button>
-          <span class="demo-tip">自动选患者+开药，右侧实时出事前提醒（供不了解规则的人快速体验）</span>
-        </div>
         <el-form label-width="90px">
           <el-form-item label="患者">
             <el-select v-model="form.patient_id" :disabled="submitted" filterable placeholder="搜索选择患者" style="width: 220px">
@@ -19,6 +10,9 @@
             </el-select>
             <el-input v-model="patientKeyword" placeholder="搜患者" style="width: 130px; margin-left: 10px" @keyup.enter="loadPatients" />
             <el-button style="margin-left: 8px" @click="loadPatients">搜索</el-button>
+            <el-select v-model="demoScenario" :disabled="submitted" placeholder="试试演示场景" style="width: 150px; margin-left: 8px" @change="onDemoScenarioChange">
+              <el-option v-for="(d, i) in DEMOS" :key="i" :label="d.label" :value="i" />
+            </el-select>
           </el-form-item>
           <el-form-item label="就诊类型">
             <!-- <span style="color: #606266">就诊类型：</span> -->
@@ -182,17 +176,22 @@ async function runPrecheck() {
     }
   }, 400)
 }
-watch(form.prescriptions, runPrecheck, { deep: true })
+watch(() => form.prescriptions, runPrecheck, { deep: true })
+// 患者/就诊类型/医院级别变化也要触发预审（修改场景条件后右侧提醒应实时刷新）
+watch([() => form.patient_id, () => form.visit_type, () => form.hospital_level], runPrecheck)
 
 function addRow() {
   form.prescriptions.push({ drug_id: null, quantity: 1, frequency: '每日3次', days: 3, single_dose: null, usage: '口服' })
+  runPrecheck()
 }
 function removeRow(i) {
   form.prescriptions.splice(i, 1)
+  runPrecheck()
 }
 function onDrugChange(row) {
   const d = drugs.value.find(x => x.id === row.drug_id)
   if (d && d.max_dose) row.single_dose = Number(d.max_dose)
+  runPrecheck()
 }
 // 根据 drug_id 自动取规格显示
 function getDrugSpec(drugId) {
@@ -204,15 +203,22 @@ function statusText(s) {
   return { draft: '草稿', submitted: '已提交', audited: '审核通过', rejected: '已拒绝' }[s] || s
 }
 
-// ===== 一键演示处方：自动选患者 + 填药，右侧 watch 会自动触发事前提醒 =====
+// ===== 一键演示处方：下拉框选场景，自动选患者 + 填药并触发 precheck =====
 const DEMOS = [
-  { patient: '李小红', diagnosis: '常规诊疗', items: [{ name: '阿苯达唑片', days: 3 }] },
-  { patient: '张小明', diagnosis: '上呼吸道感染', items: [{ name: '安乃近片', days: 3 }] },
-  { patient: '张大壮', diagnosis: '支气管炎', items: [{ name: '阿莫西林分散片', days: 14 }] },
-  { patient: '张大壮', diagnosis: '妇科门诊随访', items: [{ name: '艾附暖宫丸', days: 7 }] },
-  { patient: '王秀英', diagnosis: '皮肤瘙痒', items: [{ name: '疤痕止痒软化膏', days: 7 }] }
+  { label: '① 妊娠禁忌', patient: '李小红', diagnosis: '常规诊疗', items: [{ name: '阿苯达唑片', days: 3 }] },
+  { label: '② 儿童禁用', patient: '张小明', diagnosis: '上呼吸道感染', items: [{ name: '安乃近片', days: 3 }] },
+  { label: '③ 超疗程', patient: '张大壮', diagnosis: '支气管炎', items: [{ name: '阿莫西林分散片', days: 14 }] },
+  { label: '④ 性别禁忌', patient: '张大壮', diagnosis: '妇科门诊随访', items: [{ name: '艾附暖宫丸', days: 7 }] },
+  { label: '⑤ 医保不符', patient: '王秀英', diagnosis: '皮肤瘙痒', items: [{ name: '疤痕止痒软化膏', days: 7 }] }
 ]
-function applyDemo(idx) {
+const demoScenario = ref('')
+function onDemoScenarioChange(val) {
+  if (val === '' || val == null) return
+  applyDemo(val)
+  demoScenario.value = ''  // 选完恢复占位符
+}
+// 一键演示处方：直接调 precheck 接口并填充结果（不依赖 watch 防抖触发）
+async function applyDemo(idx) {
   const demo = DEMOS[idx]
   if (!demo) return
   resetForm()
@@ -220,17 +226,27 @@ function applyDemo(idx) {
   if (!patient) return ElMessage.warning(`未找到演示患者「${demo.patient}」，请先点击患者区「搜索」刷新`)
   form.patient_id = patient.id
   form.diagnosis = demo.diagnosis
-  form.prescriptions = demo.items.map(it => {
+  const rows = []
+  for (const it of demo.items) {
     const drug = drugs.value.find(x => x.name === it.name)
-    if (!drug) return null
+    if (!drug) return ElMessage.warning(`演示药「${it.name}」在药品列表中找不到，请先点上方「搜索」刷新药列表后再试`)
     const isExternal = /膏|软膏|乳膏|栓|贴/.test(drug.name)
-    return {
+    rows.push({
       drug_id: drug.id, quantity: 1, frequency: isExternal ? '每日1次' : '每日3次',
       days: it.days, single_dose: Number(drug.max_dose) || 1,
       usage: isExternal ? '外用' : '口服'
-    }
-  }).filter(Boolean)
-  ElMessage.success(`已填充示例「${demo.patient} 开${demo.items.map(i => i.name).join('、')}」，右侧为事前提醒结果`)
+    })
+  }
+  form.prescriptions = rows
+  ElMessage.success(`已填充示例「${demo.patient} 开${demo.items.map(i => i.name).join('、')}」`)
+  // 直接调 precheck，不依赖 watch
+  try {
+    const data = await orderApi.precheck({ patient_id: form.patient_id, prescriptions: rows, visit_type: form.visit_type, hospital_level: form.hospital_level })
+    precheckResults.value = data.violations || []
+  } catch (e) {
+    precheckResults.value = []
+    ElMessage.error('调取预审接口失败：' + (e?.response?.data?.message || e?.message || '未知错误'))
+  }
 }
 
 // 重置表单，用于成功转入事中审核后或用户手动新开方
@@ -252,7 +268,13 @@ async function loadPatients() {
 }
 async function loadDrugs() {
   const data = await drugApi.list({ page: 1, pageSize: 100 })
-  drugs.value = data.list
+  // 演示场景涉及的真实规则药排最前，方便手选体验
+  const demoOrder = DEMOS.flatMap(d => d.items.map(i => i.name))
+  drugs.value = [...data.list].sort((a, b) => {
+    const ia = demoOrder.indexOf(a.name)
+    const ib = demoOrder.indexOf(b.name)
+    return ((ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib)) || (a.id - b.id)
+  })
 }
 
 async function saveDraft() {

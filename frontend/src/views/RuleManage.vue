@@ -1,55 +1,7 @@
 <template>
   <div>
     <el-tabs v-model="activeTab">
-      <!-- ========== Tab 1: 规则库（88 条国家规则 + 知识点明细） ========== -->
-      <el-tab-pane label="规则库（88 条国家规则）" name="library">
-        <div class="toolbar">
-          <el-input v-model="libSearch.keyword" placeholder="搜索规则名称" clearable style="width: 220px" @keyup.enter="loadLibrary" @clear="loadLibrary" />
-          <el-select v-model="libSearch.category1" placeholder="一级分类" clearable style="width: 140px" @change="loadLibrary">
-            <el-option v-for="c in categories.category1" :key="c" :label="c" :value="c" />
-          </el-select>
-          <el-select v-model="libSearch.category2" placeholder="二级分类" clearable style="width: 180px" @change="loadLibrary">
-            <el-option v-for="c in categories.category2" :key="c" :label="c" :value="c" />
-          </el-select>
-          <el-button type="primary" @click="loadLibrary">搜索</el-button>
-          <el-button circle @click="resetLibFilters"><el-icon><Refresh /></el-icon></el-button>
-          <el-tag type="info" style="margin-left: auto">共 {{ libTotal }} 条</el-tag>
-        </div>
-
-        <el-table :data="libPaged" border stripe v-loading="libLoading" style="margin-top: 12px">
-          <el-table-column prop="seq" label="序号" width="70" />
-          <el-table-column prop="category1" label="一级分类" width="100">
-            <template #default="{ row }">
-              <el-tag :type="cat1Color(row.category1)" size="small">{{ row.category1 }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="category2" label="二级分类" width="180" />
-          <el-table-column prop="name" label="规则名称" />
-          <el-table-column label="知识点" width="90" align="center">
-            <template #default="{ row }">
-              <el-tag v-if="row.hasDetail" type="success" size="small">{{ row.knowledgeCount }} 条</el-tag>
-              <span v-else style="color: #c0c4cc">无</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="110">
-            <template #default="{ row }">
-              <el-button v-if="row.hasDetail && row.knowledgeCount > 0" link type="primary" @click="showKnowledge(row)">查看明细</el-button>
-              <span v-else style="color: #c0c4cc; font-size: 12px">无明细</span>
-            </template>
-          </el-table-column>
-        </el-table>
-        <el-pagination
-          style="margin-top: 16px; justify-content: flex-end"
-          layout="total, sizes, prev, pager, next, jumper"
-          :page-sizes="[10, 20, 50, 100]"
-          :total="libList.length"
-          v-model:page-size="libPageSize"
-          v-model:current-page="libPage"
-          @size-change="libPage = 1"
-        />
-      </el-tab-pane>
-
-      <!-- ========== Tab 2: 可执行规则（审核引擎实际跑的规则） ========== -->
+      <!-- ========== Tab 1: 可执行规则（审核引擎实际跑的规则） ========== -->
       <el-tab-pane label="可执行规则（审核引擎）" name="executable">
         <!-- <div class="tab-intro">
           <el-alert type="info" :closable="false" show-icon
@@ -118,6 +70,54 @@
           @size-change="execPage = 1"
         />
       </el-tab-pane>
+
+      <!-- ========== Tab 2: 规则库（88 条国家规则 + 知识点明细） ========== -->
+      <el-tab-pane label="规则库（88 条国家规则）" name="library">
+        <div class="toolbar">
+          <el-input v-model="libSearch.keyword" placeholder="搜索规则名称" clearable style="width: 220px" @keyup.enter="loadLibrary" @clear="loadLibrary" />
+          <el-select v-model="libSearch.category1" placeholder="一级分类" clearable style="width: 140px" @change="loadLibrary">
+            <el-option v-for="c in categories.category1" :key="c" :label="c" :value="c" />
+          </el-select>
+          <el-select v-model="libSearch.category2" placeholder="二级分类" clearable style="width: 180px" @change="loadLibrary">
+            <el-option v-for="c in categories.category2" :key="c" :label="c" :value="c" />
+          </el-select>
+          <el-button type="primary" @click="loadLibrary">搜索</el-button>
+          <el-button circle @click="resetLibFilters"><el-icon><Refresh /></el-icon></el-button>
+          <el-tag type="info" style="margin-left: auto">共 {{ libTotal }} 条</el-tag>
+        </div>
+
+        <el-table :data="libPaged" border stripe v-loading="libLoading" style="margin-top: 12px">
+          <el-table-column prop="seq" label="序号" width="70" />
+          <el-table-column prop="category1" label="一级分类" width="100">
+            <template #default="{ row }">
+              <el-tag :type="cat1Color(row.category1)" size="small">{{ row.category1 }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="category2" label="二级分类" width="180" />
+          <el-table-column prop="name" label="规则名称" />
+          <el-table-column label="知识点" width="90" align="center">
+            <template #default="{ row }">
+              <el-tag v-if="row.hasDetail" type="success" size="small">{{ row.knowledgeCount }} 条</el-tag>
+              <span v-else style="color: #c0c4cc">无</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="110">
+            <template #default="{ row }">
+              <el-button v-if="row.hasDetail && row.knowledgeCount > 0" link type="primary" @click="showKnowledge(row)">查看明细</el-button>
+              <span v-else style="color: #c0c4cc; font-size: 12px">无明细</span>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-pagination
+          style="margin-top: 16px; justify-content: flex-end"
+          layout="total, sizes, prev, pager, next, jumper"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="libList.length"
+          v-model:page-size="libPageSize"
+          v-model:current-page="libPage"
+          @size-change="libPage = 1"
+        />
+      </el-tab-pane>
     </el-tabs>
 
     <!-- 知识点明细抽屉 -->
@@ -179,7 +179,7 @@ import { reactive, ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ruleApi, libraryApi } from '../api'
 
-const activeTab = ref('library')
+const activeTab = ref('executable')
 
 // ===== 规则库 =====
 const libList = ref([])

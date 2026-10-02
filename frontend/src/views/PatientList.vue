@@ -66,6 +66,7 @@
           <el-select v-model="form.insurance_type" style="width: 160px">
             <el-option label="职工医保" value="职工医保" />
             <el-option label="居民医保" value="居民医保" />
+            <el-option label="工伤保险" value="工伤保险" />
             <el-option label="自费" value="自费" />
             <el-option label="其他" value="其他" />
           </el-select>
